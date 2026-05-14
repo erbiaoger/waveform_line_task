@@ -94,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--missing-block-rate", type=float, default=40.0, help="Expected missing channel-time blocks per enabled sample.")
 
     parser.add_argument("--waveform-line-width", type=int, default=1, help="Input waveform trace width in pixels.")
-    parser.add_argument("--label-line-width", type=int, default=2, help="Binary vehicle label line width in pixels.")
+    parser.add_argument("--label-line-width", type=int, default=1, help="Binary vehicle label line width in pixels.")
     parser.add_argument("--wiggle-fraction", type=float, default=0.28, help="Trace wiggle amplitude as a fraction of channel spacing.")
     parser.add_argument("--robust-percentile", type=float, default=99.5, help="Percentile for waveform display scaling.")
     return parser.parse_args()

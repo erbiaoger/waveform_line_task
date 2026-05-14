@@ -25,7 +25,7 @@ class RenderConfig:
 
     image_size: int = 512
     waveform_line_width: int = 1
-    label_line_width: int = 2
+    label_line_width: int = 1
     waveform_color: int = 40
     background_color: int = 255
     label_color: int = 255
