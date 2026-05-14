@@ -13,6 +13,7 @@ No code in this folder imports `autotrack` or any existing project scripts.
 - `generate_dataset.py`: CLI entry point. It generates paired PNG images, labels, `manifest.csv`, and `meta.json`.
 - `synth.py`: independent DAS-style waveform and vehicle trajectory synthesizer.
 - `render.py`: shared pixel mapping and PNG render utilities for waveform images, label masks, and previews.
+- `run_install_deps.sh`: `uv` environment creation and dependency installation shortcut.
 - `run_generate.sh`: shell shortcut that runs the CLI through `uv run`.
 - `model/`: independent waveform-line segmentation package: dataset, U-Net, losses, metrics, and skeleton postprocess.
 - `train_model.py`: model training entry point.
@@ -23,6 +24,27 @@ No code in this folder imports `autotrack` or any existing project scripts.
 - `datasets/`: default generated dataset location. Generated data can be recreated.
 - `models/`: default checkpoint output location.
 - `predictions/`: default batch prediction output location.
+
+## Install Dependencies
+
+Create the project-local `.venv` and install dependencies with `uv`:
+
+```sh
+sh run_install_deps.sh
+```
+
+Direct `uv` commands:
+
+```sh
+uv venv .venv --python 3.12
+uv sync
+```
+
+Check the runtime:
+
+```sh
+uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.backends.mps.is_available())"
+```
 
 ## Device Policy
 
@@ -35,8 +57,8 @@ No code in this folder imports `autotrack` or any existing project scripts.
 From the project root:
 
 ```sh
-uv run python waveform_line_task/generate_dataset.py \
-  --out-dir waveform_line_task/datasets/v1_train \
+uv run python generate_dataset.py \
+  --out-dir datasets/v1_train \
   --num-samples 6000 \
   --image-size 1024 \
   --workers 8 \
@@ -47,20 +69,20 @@ uv run python waveform_line_task/generate_dataset.py \
 Or use the shortcut:
 
 ```sh
-sh waveform_line_task/run_generate.sh
+sh run_generate.sh
 ```
 
 Useful environment overrides:
 
 ```sh
-NUM_SAMPLES=128 WORKERS=4 DEVICE=cpu OUT_DIR=/tmp/waveform_line_test sh waveform_line_task/run_generate.sh
+NUM_SAMPLES=128 WORKERS=4 DEVICE=cpu OUT_DIR=/tmp/waveform_line_test sh run_generate.sh
 ```
 
 Recommended larger training set:
 
 ```sh
-uv run python waveform_line_task/generate_dataset.py \
-  --out-dir waveform_line_task/datasets/v2_train_large \
+uv run python generate_dataset.py \
+  --out-dir datasets/v2_train_large \
   --num-samples 12000 \
   --image-size 1024 \
   --workers 1 \
@@ -71,9 +93,9 @@ uv run python waveform_line_task/generate_dataset.py \
 ## Train Model
 
 ```sh
-uv run python waveform_line_task/train_model.py \
-  --data-dir waveform_line_task/datasets/v1_train \
-  --out-dir waveform_line_task/models/unet_v1 \
+uv run python train_model.py \
+  --data-dir datasets/v1_train \
+  --out-dir models/unet_v1 \
   --image-size 512 \
   --batch-size 12 \
   --epochs 60 \
@@ -84,13 +106,13 @@ uv run python waveform_line_task/train_model.py \
 Shortcut:
 
 ```sh
-sh waveform_line_task/run_train.sh
+sh run_train.sh
 ```
 
 CPU fallback:
 
 ```sh
-DEVICE=cpu AMP=0 BATCH_SIZE=4 NUM_WORKERS=0 sh waveform_line_task/run_train.sh
+DEVICE=cpu AMP=0 BATCH_SIZE=4 NUM_WORKERS=0 sh run_train.sh
 ```
 
 Training outputs:
@@ -106,10 +128,10 @@ Training outputs:
 ## Predict
 
 ```sh
-uv run python waveform_line_task/predict_model.py \
-  --input-dir waveform_line_task/datasets/sample_check/images \
-  --model waveform_line_task/models/unet_v1/checkpoint_best.pt \
-  --out-dir waveform_line_task/predictions/sample_check \
+uv run python predict_model.py \
+  --input-dir datasets/sample_check/images \
+  --model models/unet_v1/checkpoint_best.pt \
+  --out-dir predictions/sample_check \
   --image-size 512 \
   --device cuda \
   --amp
@@ -118,7 +140,7 @@ uv run python waveform_line_task/predict_model.py \
 Shortcut:
 
 ```sh
-sh waveform_line_task/run_predict.sh
+sh run_predict.sh
 ```
 
 Prediction outputs:
@@ -152,22 +174,22 @@ Prediction outputs:
 ## Checks
 
 ```sh
-uv run python -m compileall waveform_line_task
-uv run python waveform_line_task/generate_dataset.py \
+uv run python -m compileall .
+uv run python generate_dataset.py \
   --out-dir /tmp/waveform_line_smoke \
   --num-samples 8 \
   --workers 1 \
   --device cpu \
   --overwrite
-uv run python waveform_line_task/train_model.py \
-  --data-dir waveform_line_task/datasets/sample_check \
+uv run python train_model.py \
+  --data-dir datasets/sample_check \
   --out-dir /tmp/waveform_line_model_smoke \
   --epochs 1 \
   --batch-size 2 \
   --device cpu \
   --overwrite
-uv run python waveform_line_task/predict_model.py \
-  --input-dir waveform_line_task/datasets/sample_check/images \
+uv run python predict_model.py \
+  --input-dir datasets/sample_check/images \
   --model /tmp/waveform_line_model_smoke/checkpoint_last.pt \
   --out-dir /tmp/waveform_line_pred_smoke \
   --image-size 512 \

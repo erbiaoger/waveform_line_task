@@ -1,0 +1,19 @@
+[project]
+name = "waveform-line-task"
+version = "0.1.0"
+description = "Independent waveform-line dataset generation, training, and inference task."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "matplotlib>=3.8",
+  "numpy>=1.26",
+  "pillow>=10.0",
+  "torch>=2.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = false

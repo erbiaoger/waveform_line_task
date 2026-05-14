@@ -5,7 +5,7 @@
 #
 # Parameters (override through environment variables before `sh`):
 #   OUT_DIR       Output dataset directory.
-#                 Default: waveform_line_task/datasets/v1_train
+#                 Default: datasets/v1_train
 #   NUM_SAMPLES   Number of image/label pairs to generate.
 #                 Default: 6000
 #   IMAGE_SIZE    Output PNG size in pixels.
@@ -22,16 +22,16 @@
 #                 Default: 1
 #
 # Examples:
-#   sh waveform_line_task/run_generate.sh
-#   NUM_SAMPLES=12000 DEVICE=cuda WORKERS=1 sh waveform_line_task/run_generate.sh
-#   OUT_DIR=/tmp/waveform_line_test DEVICE=cpu sh waveform_line_task/run_generate.sh
+#   sh run_generate.sh
+#   NUM_SAMPLES=12000 DEVICE=cuda WORKERS=1 sh run_generate.sh
+#   OUT_DIR=/tmp/waveform_line_test DEVICE=cpu sh run_generate.sh
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+PROJECT_DIR=$SCRIPT_DIR
 cd "$PROJECT_DIR"
 
-OUT_DIR=${OUT_DIR:-waveform_line_task/datasets/v1_train}
+OUT_DIR=${OUT_DIR:-datasets/v1_train}
 NUM_SAMPLES=${NUM_SAMPLES:-6000}
 IMAGE_SIZE=${IMAGE_SIZE:-1024}
 WORKERS=${WORKERS:-8}
@@ -45,7 +45,7 @@ if [ "$OVERWRITE" = "1" ] || [ "$OVERWRITE" = "true" ]; then
   overwrite_args="--overwrite"
 fi
 
-uv run python waveform_line_task/generate_dataset.py \
+uv run python generate_dataset.py \
   --out-dir "$OUT_DIR" \
   --num-samples "$NUM_SAMPLES" \
   --image-size "$IMAGE_SIZE" \
