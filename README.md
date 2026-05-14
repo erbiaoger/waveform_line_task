@@ -33,6 +33,19 @@ Create the project-local `.venv` and install dependencies with `uv`:
 sh run_install_deps.sh
 ```
 
+If your machine is behind a strict proxy, campus gateway, or TLS-inspecting
+network, retry with system TLS certificates:
+
+```sh
+UV_NATIVE_TLS=1 sh run_install_deps.sh
+```
+
+If PyPI access is unstable, retry with a mirror:
+
+```sh
+UV_NATIVE_TLS=1 UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple sh run_install_deps.sh
+```
+
 Direct `uv` commands:
 
 ```sh
@@ -45,6 +58,9 @@ Check the runtime:
 ```sh
 uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.backends.mps.is_available())"
 ```
+
+This project intentionally pins `torch==2.5.1` to avoid resolving to newer
+CUDA 13.x builds on Linux hosts with older NVIDIA drivers.
 
 ## Device Policy
 
