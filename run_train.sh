@@ -44,7 +44,7 @@ DEVICE=${DEVICE:-auto}
 VAL_FRACTION=${VAL_FRACTION:-0.1}
 NUM_WORKERS=${NUM_WORKERS:-16}
 AMP=${AMP:-1}
-OVERWRITE=${OVERWRITE:-0}
+OVERWRITE=${OVERWRITE:-1}
 
 overwrite_args=""
 if [ "$OVERWRITE" = "1" ] || [ "$OVERWRITE" = "true" ]; then
