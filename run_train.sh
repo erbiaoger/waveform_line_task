@@ -1,4 +1,34 @@
 #!/usr/bin/env sh
+# Purpose:
+#   Shortcut for training the waveform-line segmentation model with the
+#   project's Python environment through `uv run`.
+#
+# Parameters (override through environment variables before `sh`):
+#   DATA_DIR      Dataset directory containing manifest.csv, images/, labels/.
+#                 Default: waveform_line_task/datasets/v1_train
+#   OUT_DIR       Output directory for checkpoints and logs.
+#                 Default: waveform_line_task/models/unet_v1
+#   IMAGE_SIZE    Training resize resolution.
+#                 Default: 512
+#   BATCH_SIZE    Training batch size.
+#                 Default: 12
+#   EPOCHS        Training epoch count.
+#                 Default: 60
+#   DEVICE        Device selection: auto, cuda, mps, cpu.
+#                 Default: auto
+#   VAL_FRACTION  Validation split fraction.
+#                 Default: 0.1
+#   NUM_WORKERS   PyTorch DataLoader worker count.
+#                 Default: 4
+#   AMP           Enable mixed precision when set to 1/true.
+#                 Default: 1
+#   OVERWRITE     Replace OUT_DIR when set to 1/true.
+#                 Default: 0
+#
+# Examples:
+#   sh waveform_line_task/run_train.sh
+#   DEVICE=cuda AMP=1 BATCH_SIZE=16 sh waveform_line_task/run_train.sh
+#   DEVICE=cpu AMP=0 BATCH_SIZE=4 NUM_WORKERS=0 sh waveform_line_task/run_train.sh
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

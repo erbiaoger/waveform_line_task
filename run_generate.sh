@@ -1,4 +1,30 @@
 #!/usr/bin/env sh
+# Purpose:
+#   Shortcut for generating a waveform-line dataset with the project's
+#   Python environment through `uv run`.
+#
+# Parameters (override through environment variables before `sh`):
+#   OUT_DIR       Output dataset directory.
+#                 Default: waveform_line_task/datasets/v1_train
+#   NUM_SAMPLES   Number of image/label pairs to generate.
+#                 Default: 6000
+#   IMAGE_SIZE    Output PNG size in pixels.
+#                 Default: 1024
+#   WORKERS       CPU worker count. CUDA generation is internally forced to 1.
+#                 Default: 8
+#   DEVICE        Device selection: auto, cuda, mps, cpu.
+#                 Default: auto
+#   SEED          Base random seed.
+#                 Default: 42
+#   PREVIEW_COUNT Number of overlay preview PNG files to save.
+#                 Default: 24
+#   OVERWRITE     Replace the output directory when set to 1/true.
+#                 Default: 1
+#
+# Examples:
+#   sh waveform_line_task/run_generate.sh
+#   NUM_SAMPLES=12000 DEVICE=cuda WORKERS=1 sh waveform_line_task/run_generate.sh
+#   OUT_DIR=/tmp/waveform_line_test DEVICE=cpu sh waveform_line_task/run_generate.sh
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
