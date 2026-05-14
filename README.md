@@ -24,6 +24,12 @@ No code in this folder imports `autotrack` or any existing project scripts.
 - `models/`: default checkpoint output location.
 - `predictions/`: default batch prediction output location.
 
+## Device Policy
+
+- Default device is now `auto`, which prefers `cuda`, then `mps`, then `cpu`.
+- Training and inference are tuned first for NVIDIA CUDA.
+- CPU remains supported by explicitly passing `--device cpu`.
+
 ## Generate Data
 
 From the project root:
@@ -31,9 +37,10 @@ From the project root:
 ```sh
 uv run python waveform_line_task/generate_dataset.py \
   --out-dir waveform_line_task/datasets/v1_train \
-  --num-samples 1000 \
+  --num-samples 6000 \
   --image-size 1024 \
   --workers 8 \
+  --device cuda \
   --overwrite
 ```
 
@@ -46,7 +53,19 @@ sh waveform_line_task/run_generate.sh
 Useful environment overrides:
 
 ```sh
-NUM_SAMPLES=128 WORKERS=4 OUT_DIR=/tmp/waveform_line_test sh waveform_line_task/run_generate.sh
+NUM_SAMPLES=128 WORKERS=4 DEVICE=cpu OUT_DIR=/tmp/waveform_line_test sh waveform_line_task/run_generate.sh
+```
+
+Recommended larger training set:
+
+```sh
+uv run python waveform_line_task/generate_dataset.py \
+  --out-dir waveform_line_task/datasets/v2_train_large \
+  --num-samples 12000 \
+  --image-size 1024 \
+  --workers 1 \
+  --device cuda \
+  --overwrite
 ```
 
 ## Train Model
@@ -56,15 +75,22 @@ uv run python waveform_line_task/train_model.py \
   --data-dir waveform_line_task/datasets/v1_train \
   --out-dir waveform_line_task/models/unet_v1 \
   --image-size 512 \
-  --batch-size 8 \
-  --epochs 50 \
-  --device cpu
+  --batch-size 12 \
+  --epochs 60 \
+  --device cuda \
+  --amp
 ```
 
 Shortcut:
 
 ```sh
 sh waveform_line_task/run_train.sh
+```
+
+CPU fallback:
+
+```sh
+DEVICE=cpu AMP=0 BATCH_SIZE=4 NUM_WORKERS=0 sh waveform_line_task/run_train.sh
 ```
 
 Training outputs:
@@ -84,7 +110,9 @@ uv run python waveform_line_task/predict_model.py \
   --input-dir waveform_line_task/datasets/sample_check/images \
   --model waveform_line_task/models/unet_v1/checkpoint_best.pt \
   --out-dir waveform_line_task/predictions/sample_check \
-  --image-size 512
+  --image-size 512 \
+  --device cuda \
+  --amp
 ```
 
 Shortcut:
@@ -129,6 +157,7 @@ uv run python waveform_line_task/generate_dataset.py \
   --out-dir /tmp/waveform_line_smoke \
   --num-samples 8 \
   --workers 1 \
+  --device cpu \
   --overwrite
 uv run python waveform_line_task/train_model.py \
   --data-dir waveform_line_task/datasets/sample_check \
@@ -141,7 +170,8 @@ uv run python waveform_line_task/predict_model.py \
   --input-dir waveform_line_task/datasets/sample_check/images \
   --model /tmp/waveform_line_model_smoke/checkpoint_last.pt \
   --out-dir /tmp/waveform_line_pred_smoke \
-  --image-size 512
+  --image-size 512 \
+  --device cpu
 ```
 
 The label PNGs should contain only `0` and `255`, and all image/label pairs

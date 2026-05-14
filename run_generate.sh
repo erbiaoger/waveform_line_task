@@ -6,12 +6,12 @@ PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 cd "$PROJECT_DIR"
 
 OUT_DIR=${OUT_DIR:-waveform_line_task/datasets/v1_train}
-NUM_SAMPLES=${NUM_SAMPLES:-1000}
+NUM_SAMPLES=${NUM_SAMPLES:-6000}
 IMAGE_SIZE=${IMAGE_SIZE:-1024}
 WORKERS=${WORKERS:-8}
-DEVICE=${DEVICE:-cpu}
+DEVICE=${DEVICE:-auto}
 SEED=${SEED:-42}
-PREVIEW_COUNT=${PREVIEW_COUNT:-16}
+PREVIEW_COUNT=${PREVIEW_COUNT:-24}
 OVERWRITE=${OVERWRITE:-1}
 
 overwrite_args=""
@@ -28,4 +28,3 @@ uv run python waveform_line_task/generate_dataset.py \
   --seed "$SEED" \
   --preview-count "$PREVIEW_COUNT" \
   $overwrite_args
-

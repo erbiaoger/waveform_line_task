@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from torchvision.io import read_image
+from PIL import Image
 
 
 @dataclass(frozen=True)
@@ -89,9 +90,7 @@ class WaveformLineSegmentationDataset(Dataset):
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         record = self.records[int(index)]
-        image = read_image(str(record.image_path)).to(torch.float32) / 255.0
-        if int(image.shape[0]) != 1:
-            image = image[:1]
+        image = _read_gray_image(record.image_path)
         original_size = (int(image.shape[-2]), int(image.shape[-1]))
         image = _resize_tensor(image, self.image_size, mode="bilinear")
 
@@ -103,9 +102,7 @@ class WaveformLineSegmentationDataset(Dataset):
             "stem": record.image_path.stem,
         }
         if self.include_labels:
-            mask = read_image(str(record.label_path)).to(torch.float32) / 255.0
-            if int(mask.shape[0]) != 1:
-                mask = mask[:1]
+            mask = _read_gray_image(record.label_path)
             mask = (mask >= 0.5).to(torch.float32)
             mask = _resize_tensor(mask, self.image_size, mode="nearest")
             item["mask"] = (mask >= 0.5).to(torch.float32).contiguous()
@@ -137,3 +134,8 @@ def _resize_tensor(tensor: torch.Tensor, image_size: int, *, mode: str) -> torch
         resized = F.interpolate(tensor, size=(int(image_size), int(image_size)), mode=mode, align_corners=False)
     return resized.squeeze(0)
 
+
+def _read_gray_image(path: Path) -> torch.Tensor:
+    image = Image.open(path).convert("L")
+    arr = np.asarray(image, dtype=np.float32) / 255.0
+    return torch.from_numpy(arr).unsqueeze(0)

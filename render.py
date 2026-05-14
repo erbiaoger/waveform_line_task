@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import torch
-from torchvision.io import write_png
+from PIL import Image
 
 try:
     from .synth import VehicleTrack
@@ -118,8 +117,7 @@ def save_gray_png(path: Path, image: np.ndarray) -> None:
     arr = np.asarray(image, dtype=np.uint8)
     if arr.ndim != 2:
         raise ValueError(f"gray image must have shape [H, W], got {arr.shape}")
-    tensor = torch.from_numpy(arr[None, :, :].copy())
-    write_png(tensor, str(path))
+    Image.fromarray(arr, mode="L").save(path, format="PNG")
 
 
 def save_rgb_png(path: Path, image: np.ndarray) -> None:
@@ -129,12 +127,11 @@ def save_rgb_png(path: Path, image: np.ndarray) -> None:
     arr = np.asarray(image, dtype=np.uint8)
     if arr.ndim != 3:
         raise ValueError(f"RGB image must be rank 3, got {arr.shape}")
-    if arr.shape[0] != 3 and arr.shape[-1] == 3:
-        arr = np.moveaxis(arr, -1, 0)
-    if arr.shape[0] != 3:
+    if arr.shape[0] == 3:
+        arr = np.moveaxis(arr, 0, -1)
+    if arr.shape[-1] != 3:
         raise ValueError(f"RGB image must have 3 channels, got {arr.shape}")
-    tensor = torch.from_numpy(arr.copy())
-    write_png(tensor, str(path))
+    Image.fromarray(arr, mode="RGB").save(path, format="PNG")
 
 
 def save_preview_png(path: Path, image: np.ndarray) -> None:

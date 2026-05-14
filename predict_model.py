@@ -4,6 +4,20 @@ Purpose:
     Load a trained waveform-line U-Net checkpoint and run batch PNG inference:
 
         images/ -> pred_masks/, pred_skeletons/, previews/, summary.json
+
+Usage:
+    uv run python waveform_line_task/predict_model.py \
+      --input-dir waveform_line_task/datasets/sample_check/images \
+      --model waveform_line_task/models/unet_v1/checkpoint_best.pt \
+      --out-dir waveform_line_task/predictions/sample_check \
+      --image-size 512 \
+      --device cuda
+
+Notes:
+    - `--device auto` is the default and prefers CUDA.
+    - CUDA inference enables AMP, pinned host memory, channels-last tensors,
+      and non-blocking host-to-device copies.
+    - CPU fallback remains available with `--device cpu`.
 """
 
 from __future__ import annotations
@@ -19,15 +33,18 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.amp import autocast
 from torch.utils.data import DataLoader
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from device_utils import configure_torch_runtime, resolve_runtime_device
     from model.dataset import WaveformLineSegmentationDataset, collate_batch, load_manifest
     from model.network import UNetConfig, WaveformLineUNet
     from model.postprocess import logits_to_binary_mask, mask_to_skeleton_tensor
     from render import save_gray_png, save_preview_png
 else:
+    from .device_utils import configure_torch_runtime, resolve_runtime_device
     from .model.dataset import WaveformLineSegmentationDataset, collate_batch, load_manifest
     from .model.network import UNetConfig, WaveformLineUNet
     from .model.postprocess import logits_to_binary_mask, mask_to_skeleton_tensor
@@ -40,16 +57,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", required=True, type=Path, help="Checkpoint path produced by train_model.py.")
     parser.add_argument("--out-dir", required=True, type=Path, help="Output directory for masks, skeletons, previews, and summary.json.")
     parser.add_argument("--image-size", type=int, default=512, help="Inference resolution before resizing outputs back to the original size.")
-    parser.add_argument("--batch-size", type=int, default=4, help="Inference batch size.")
-    parser.add_argument("--device", default="cpu", choices=["cpu", "cuda", "mps"], help="Torch device.")
+    parser.add_argument("--batch-size", type=int, default=8, help="Inference batch size.")
+    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"], help="Torch device. 'auto' prefers CUDA, then MPS, then CPU.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Sigmoid threshold for mask binarization.")
-    parser.add_argument("--num-workers", type=int, default=0, help="DataLoader worker count.")
+    parser.add_argument("--num-workers", type=int, default=2, help="DataLoader worker count.")
+    parser.add_argument("--amp", action="store_true", help="Enable mixed precision on supported devices. Enabled by default for CUDA.")
+    parser.add_argument("--no-amp", action="store_true", help="Disable mixed precision even when CUDA is used.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    device = _resolve_device(str(args.device))
+    _validate_args(args)
+    runtime_device = resolve_runtime_device(str(args.device))
+    configure_torch_runtime(runtime_device)
+    device = runtime_device.torch_device
+    use_amp = bool(runtime_device.use_cuda and not bool(args.no_amp))
+    if bool(args.amp):
+        use_amp = bool(runtime_device.use_cuda)
     out_dir = Path(args.out_dir).expanduser()
     _prepare_out_dir(out_dir)
 
@@ -58,17 +83,26 @@ def main() -> int:
     if not records:
         raise ValueError(f"No manifest records matched images under {args.input_dir}")
     dataset = WaveformLineSegmentationDataset(records, image_size=int(args.image_size), include_labels=False)
+    loader_kwargs: dict[str, Any] = {
+        "pin_memory": bool(runtime_device.use_cuda),
+        "persistent_workers": bool(int(args.num_workers) > 0),
+    }
+    if int(args.num_workers) > 0:
+        loader_kwargs["prefetch_factor"] = 2
     loader = DataLoader(
         dataset,
         batch_size=int(args.batch_size),
         shuffle=False,
         num_workers=int(args.num_workers),
         collate_fn=collate_batch,
+        **loader_kwargs,
     )
 
     checkpoint = torch.load(str(Path(args.model).expanduser()), map_location="cpu", weights_only=False)
     model_config = UNetConfig(**dict(checkpoint.get("model_config", {})))
     model = WaveformLineUNet(model_config).to(device)
+    if runtime_device.use_cuda:
+        model = model.to(memory_format=torch.channels_last)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
 
@@ -76,9 +110,12 @@ def main() -> int:
     total_time = 0.0
     with torch.no_grad():
         for batch in loader:
-            image = batch["image"].to(device)
+            image = batch["image"].to(device, non_blocking=bool(runtime_device.use_cuda))
+            if runtime_device.use_cuda:
+                image = image.to(memory_format=torch.channels_last)
             t0 = time.perf_counter()
-            logits = model(image)
+            with autocast(device_type="cuda", enabled=bool(use_amp and runtime_device.use_cuda)):
+                logits = model(image)
             total_time += float(time.perf_counter() - t0)
             mask = logits_to_binary_mask(logits, threshold=float(args.threshold)).cpu()
             skeleton = mask_to_skeleton_tensor(mask).cpu()
@@ -110,6 +147,9 @@ def main() -> int:
     summary = {
         "input_dir": str(Path(args.input_dir).expanduser()),
         "model": str(Path(args.model).expanduser()),
+        "device_requested": runtime_device.requested,
+        "device_resolved": runtime_device.resolved,
+        "amp": bool(use_amp),
         "threshold": float(args.threshold),
         "image_size": int(args.image_size),
         "num_inputs": int(len(records)),
@@ -147,19 +187,17 @@ def _resize_gray(image: torch.Tensor, height: int, width: int) -> torch.Tensor:
     return F.interpolate(image.to(torch.float32), size=(int(height), int(width)), mode="bilinear", align_corners=False)
 
 
-def _resolve_device(name: str) -> torch.device:
-    name = str(name).lower()
-    if name == "cpu":
-        return torch.device("cpu")
-    if name == "cuda":
-        if not torch.cuda.is_available():
-            raise RuntimeError("CUDA is not available")
-        return torch.device("cuda")
-    if name == "mps":
-        if not torch.backends.mps.is_available():
-            raise RuntimeError("MPS is not available")
-        return torch.device("mps")
-    raise ValueError(f"Unsupported device: {name}")
+def _validate_args(args: argparse.Namespace) -> None:
+    if int(args.image_size) <= 0:
+        raise ValueError("--image-size must be > 0")
+    if int(args.batch_size) <= 0:
+        raise ValueError("--batch-size must be > 0")
+    if int(args.num_workers) < 0:
+        raise ValueError("--num-workers must be >= 0")
+    if not (0.0 <= float(args.threshold) <= 1.0):
+        raise ValueError("--threshold must be in [0, 1]")
+    if bool(args.amp) and bool(args.no_amp):
+        raise ValueError("--amp and --no-amp cannot be used together")
 
 
 def _prepare_out_dir(out_dir: Path) -> None:

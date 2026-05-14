@@ -12,9 +12,10 @@ Purpose:
 Usage:
     uv run python waveform_line_task/generate_dataset.py \
         --out-dir waveform_line_task/datasets/v1_train \
-        --num-samples 1000 \
+        --num-samples 6000 \
         --image-size 1024 \
         --workers 8 \
+        --device cuda \
         --overwrite
 
 Outputs:
@@ -32,9 +33,10 @@ Outputs:
         Optional RGB overlay preview for manual checking.
 
 Notes:
-    Use `--device cpu` for portable CPU generation. `--device cuda` and
-    `--device mps` run waveform synthesis math on that torch device when the
-    backend is available; PNG rendering and writing remain CPU-bound.
+    `--device auto` is the default and prefers CUDA, then MPS, then CPU.
+    `--device cuda` and `--device mps` run waveform synthesis math on that
+    torch device when the backend is available; PNG rendering and writing
+    remain CPU-bound. Use `--device cpu` for the portable CPU path.
 """
 
 from __future__ import annotations
@@ -53,41 +55,43 @@ from typing import Any
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from device_utils import configure_torch_runtime, resolve_runtime_device
     from render import RenderConfig, render_label_image, render_preview, render_waveform_image, save_gray_png, save_preview_png
-    from synth import SynthConfig, generate_sample, resolve_torch_device
+    from synth import SynthConfig, generate_sample
 else:
+    from .device_utils import configure_torch_runtime, resolve_runtime_device
     from .render import RenderConfig, render_label_image, render_preview, render_waveform_image, save_gray_png, save_preview_png
-    from .synth import SynthConfig, generate_sample, resolve_torch_device
+    from .synth import SynthConfig, generate_sample
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate independent waveform-to-vehicle-line PNG dataset.")
     parser.add_argument("--out-dir", required=True, type=Path, help="Output dataset directory.")
-    parser.add_argument("--num-samples", type=int, default=1000, help="Number of image/label pairs to generate.")
+    parser.add_argument("--num-samples", type=int, default=6000, help="Number of image/label pairs to generate.")
     parser.add_argument("--image-size", type=int, default=1024, help="Square PNG size in pixels.")
     parser.add_argument("--workers", type=int, default=8, help="CPU worker processes. Forced to 1 when device is cuda/mps.")
-    parser.add_argument("--device", default="cpu", choices=["cpu", "cuda", "mps"], help="Synthesis device. Rendering and PNG writing use CPU.")
+    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"], help="Synthesis device. 'auto' prefers CUDA, then MPS, then CPU.")
     parser.add_argument("--seed", type=int, default=42, help="Base random seed.")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing output directory.")
-    parser.add_argument("--preview-count", type=int, default=16, help="Number of overlay preview PNGs to write. Use 0 to disable.")
+    parser.add_argument("--preview-count", type=int, default=24, help="Number of overlay preview PNGs to write. Use 0 to disable.")
     parser.add_argument("--image-prefix", default="sample", help="Filename prefix for generated PNGs.")
 
-    parser.add_argument("--n-channels", type=int, default=50, help="Number of DAS channels.")
-    parser.add_argument("--time-bins", type=int, default=2048, help="Synthetic time samples per channel before rendering.")
+    parser.add_argument("--n-channels", type=int, default=64, help="Number of DAS channels.")
+    parser.add_argument("--time-bins", type=int, default=3072, help="Synthetic time samples per channel before rendering.")
     parser.add_argument("--window-seconds", type=float, default=120.0, help="Synthetic window duration.")
     parser.add_argument("--dx-m", type=float, default=100.0, help="Channel spacing in meters.")
-    parser.add_argument("--vehicles-min", type=int, default=24, help="Minimum vehicles per sample.")
-    parser.add_argument("--vehicles-max", type=int, default=36, help="Maximum vehicles per sample.")
-    parser.add_argument("--speed-min-kmh", type=float, default=70.0, help="Minimum vehicle speed.")
-    parser.add_argument("--speed-max-kmh", type=float, default=85.0, help="Maximum vehicle speed.")
+    parser.add_argument("--vehicles-min", type=int, default=28, help="Minimum vehicles per sample.")
+    parser.add_argument("--vehicles-max", type=int, default=44, help="Maximum vehicles per sample.")
+    parser.add_argument("--speed-min-kmh", type=float, default=55.0, help="Minimum vehicle speed.")
+    parser.add_argument("--speed-max-kmh", type=float, default=95.0, help="Maximum vehicle speed.")
     parser.add_argument("--primary-ratio", type=float, default=0.8333333333, help="Fraction of forward-direction vehicles.")
     parser.add_argument("--min-visible-channels", type=int, default=4, help="Minimum visible channels kept per vehicle label.")
 
-    parser.add_argument("--noise-std", type=float, default=0.05, help="White noise standard deviation.")
-    parser.add_argument("--colored-noise-std", type=float, default=0.06, help="Time-correlated noise standard deviation.")
-    parser.add_argument("--baseline-drift-std", type=float, default=0.035, help="Slow baseline drift standard deviation.")
-    parser.add_argument("--isolated-noise-rate", type=float, default=180.0, help="Expected isolated Gaussian noise peaks per sample.")
-    parser.add_argument("--missing-block-rate", type=float, default=30.0, help="Expected missing channel-time blocks per enabled sample.")
+    parser.add_argument("--noise-std", type=float, default=0.06, help="White noise standard deviation.")
+    parser.add_argument("--colored-noise-std", type=float, default=0.075, help="Time-correlated noise standard deviation.")
+    parser.add_argument("--baseline-drift-std", type=float, default=0.045, help="Slow baseline drift standard deviation.")
+    parser.add_argument("--isolated-noise-rate", type=float, default=240.0, help="Expected isolated Gaussian noise peaks per sample.")
+    parser.add_argument("--missing-block-rate", type=float, default=40.0, help="Expected missing channel-time blocks per enabled sample.")
 
     parser.add_argument("--waveform-line-width", type=int, default=1, help="Input waveform trace width in pixels.")
     parser.add_argument("--label-line-width", type=int, default=2, help="Binary vehicle label line width in pixels.")
@@ -100,10 +104,11 @@ def main() -> int:
     args = parse_args()
     _validate_args(args)
 
-    device_name = str(args.device)
-    resolve_torch_device(device_name)
+    runtime_device = resolve_runtime_device(str(args.device))
+    configure_torch_runtime(runtime_device)
+    device_name = runtime_device.resolved
     workers = int(max(1, args.workers))
-    if device_name != "cpu" and workers != 1:
+    if runtime_device.use_cuda and workers != 1:
         print(f"--device {device_name} uses one process to avoid multiple GPU writers; overriding workers={workers} to 1.", flush=True)
         workers = 1
 
@@ -115,12 +120,12 @@ def main() -> int:
     t0 = time.perf_counter()
 
     if workers <= 1:
-        rows = [_write_one_sample(idx, out_dir, synth_config, render_config, args) for idx in range(int(args.num_samples))]
+        rows = [_write_one_sample(idx, out_dir, synth_config, render_config, args, device_name=device_name) for idx in range(int(args.num_samples))]
     else:
         rows = []
         with ProcessPoolExecutor(max_workers=workers) as executor:
             futures = [
-                executor.submit(_write_one_sample, idx, out_dir, synth_config, render_config, args)
+                executor.submit(_write_one_sample, idx, out_dir, synth_config, render_config, args, device_name)
                 for idx in range(int(args.num_samples))
             ]
             for completed, future in enumerate(as_completed(futures), start=1):
@@ -137,6 +142,7 @@ def main() -> int:
         render_config=render_config,
         rows=rows,
         workers=workers,
+        device_name=device_name,
         elapsed_seconds=float(time.perf_counter() - t0),
     )
     _write_dataset_readme(out_dir, args)
@@ -180,8 +186,9 @@ def _write_one_sample(
     synth_config: SynthConfig,
     render_config: RenderConfig,
     args: argparse.Namespace,
+    device_name: str,
 ) -> dict[str, Any]:
-    sample = generate_sample(index, synth_config, seed=int(args.seed), device_name=str(args.device))
+    sample = generate_sample(index, synth_config, seed=int(args.seed), device_name=device_name)
     stem = f"{str(args.image_prefix)}_{int(index):06d}"
     image_rel = Path("images") / f"{stem}.png"
     label_rel = Path("labels") / f"{stem}.png"
@@ -242,6 +249,7 @@ def _write_meta(
     render_config: RenderConfig,
     rows: list[dict[str, Any]],
     workers: int,
+    device_name: str,
     elapsed_seconds: float,
 ) -> None:
     meta = {
@@ -249,7 +257,8 @@ def _write_meta(
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "num_samples": int(len(rows)),
         "image_size": int(render_config.image_size),
-        "device": str(args.device),
+        "device_requested": str(args.device),
+        "device_resolved": str(device_name),
         "workers": int(workers),
         "elapsed_seconds": float(elapsed_seconds),
         "synth_config": asdict(synth_config),
@@ -288,6 +297,7 @@ uv run python waveform_line_task/generate_dataset.py \\
   --num-samples {int(args.num_samples)} \\
   --image-size {int(args.image_size)} \\
   --workers {int(args.workers)} \\
+  --device {str(args.device)} \\
   --overwrite
 ```
 """

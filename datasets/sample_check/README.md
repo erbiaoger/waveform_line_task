@@ -22,5 +22,6 @@ uv run python waveform_line_task/generate_dataset.py \
   --num-samples 4 \
   --image-size 1024 \
   --workers 1 \
+  --device cpu \
   --overwrite
 ```
