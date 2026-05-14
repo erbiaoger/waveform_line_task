@@ -1,0 +1,5 @@
+sample_index,image_path,label_path,preview_path,vehicle_count,visible_point_count,seed,dead_channel_count,missing_block_count
+0,images/sample_000000.png,labels/sample_000000.png,previews/sample_000000_overlay.png,30,597,42,0,30
+1,images/sample_000001.png,labels/sample_000001.png,previews/sample_000001_overlay.png,26,543,1000045,2,30
+2,images/sample_000002.png,labels/sample_000002.png,previews/sample_000002_overlay.png,36,634,2000048,5,30
+3,images/sample_000003.png,labels/sample_000003.png,previews/sample_000003_overlay.png,29,582,3000051,3,30

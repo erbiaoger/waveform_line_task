@@ -1,0 +1,34 @@
+# OS / editor noise
+.DS_Store
+
+# Python cache / local env
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Training / inference artifacts
+models/**
+!models/.gitkeep
+predictions/**
+!predictions/.gitkeep
+
+# Generated datasets, but keep checked-in sample data and docs
+datasets/**
+!datasets/
+!datasets/README.md
+!datasets/sample_check/
+!datasets/sample_check/README.md
+!datasets/sample_check/images/
+!datasets/sample_check/images/*.png
+!datasets/sample_check/labels/
+!datasets/sample_check/labels/*.png
+!datasets/sample_check/previews/
+!datasets/sample_check/previews/*.png
+!datasets/sample_check/manifest.csv
+!datasets/sample_check/meta.json
