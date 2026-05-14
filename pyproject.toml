@@ -1,19 +1,19 @@
 [project]
-name = "waveform-line-task"
+name = "bafang-auto-track"
 version = "0.1.0"
-description = "Independent waveform-line dataset generation, training, and inference task."
-readme = "README.md"
-requires-python = ">=3.11,<3.14"
+description = "DAS vehicle trajectory extraction, training data visualization, and trajectory-query model training."
+requires-python = ">=3.12,<3.13"
 dependencies = [
-  "matplotlib>=3.8",
-  "numpy>=1.26",
-  "pillow>=10.0",
-  "torch>=2.3",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "obspy>=1.4.2",
+    "pyqt6>=6.10.2",
+    "scipy>=1.17.0",
+    "setuptools==79.0.0",
+    "torch==2.6.0",
+    "torchvision==0.21.0",
+    "torchaudio==2.6.0",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.uv]
 package = false
