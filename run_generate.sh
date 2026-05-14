@@ -9,7 +9,7 @@
 #   NUM_SAMPLES   Number of image/label pairs to generate.
 #                 Default: 6000
 #   IMAGE_SIZE    Output PNG size in pixels.
-#                 Default: 1024
+#                 Default: 512
 #   WORKERS       CPU worker count. CUDA generation is internally forced to 1.
 #                 Default: 8
 #   DEVICE        Device selection: auto, cuda, mps, cpu.
@@ -33,7 +33,7 @@ cd "$PROJECT_DIR"
 
 OUT_DIR=${OUT_DIR:-datasets/v1_train}
 NUM_SAMPLES=${NUM_SAMPLES:-6000}
-IMAGE_SIZE=${IMAGE_SIZE:-1024}
+IMAGE_SIZE=${IMAGE_SIZE:-512}
 WORKERS=${WORKERS:-32}
 DEVICE=${DEVICE:-auto}
 SEED=${SEED:-42}

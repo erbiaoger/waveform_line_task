@@ -23,7 +23,7 @@ except ImportError:
 class RenderConfig:
     """Rendering parameters for paired waveform and vehicle-line images."""
 
-    image_size: int = 1024
+    image_size: int = 512
     waveform_line_width: int = 1
     label_line_width: int = 2
     waveform_color: int = 40

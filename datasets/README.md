@@ -29,7 +29,7 @@ Recommended larger preset for model training:
 uv run python generate_dataset.py \
   --out-dir datasets/v2_train_large \
   --num-samples 12000 \
-  --image-size 1024 \
+  --image-size 512 \
   --workers 1 \
   --device cuda \
   --overwrite

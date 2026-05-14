@@ -76,7 +76,7 @@ From the project root:
 uv run python generate_dataset.py \
   --out-dir datasets/v1_train \
   --num-samples 6000 \
-  --image-size 1024 \
+  --image-size 512 \
   --workers 8 \
   --device cuda \
   --overwrite
@@ -100,7 +100,7 @@ Recommended larger training set:
 uv run python generate_dataset.py \
   --out-dir datasets/v2_train_large \
   --num-samples 12000 \
-  --image-size 1024 \
+  --image-size 512 \
   --workers 1 \
   --device cuda \
   --overwrite
@@ -213,4 +213,4 @@ uv run python predict_model.py \
 ```
 
 The label PNGs should contain only `0` and `255`, and all image/label pairs
-should have the same `1024x1024` shape unless `--image-size` is changed.
+should have the same `512x512` shape unless `--image-size` is changed.
