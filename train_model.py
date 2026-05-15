@@ -90,7 +90,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-skeleton-metrics", action="store_true", help="Compute expensive skeleton metrics during training. Disabled by default to keep the GPU fed.")
     parser.add_argument("--val-skeleton-every", type=int, default=10, help="Run expensive validation skeleton metrics every N epochs. Use 0 to disable.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--save-every", type=int, default=1, help="Checkpoint frequency in epochs.")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing non-empty out-dir.")
     return parser.parse_args()
 
@@ -222,13 +221,15 @@ def main() -> int:
         checkpoint_metrics = {"train": train_metrics, "val": val_metrics}
         save_seconds = 0.0
         save_t0 = time.perf_counter()
-        if int(epoch) % int(args.save_every) == 0:
+        checkpoint_due = bool(int(args.val_skeleton_every) > 0 and int(epoch) % int(args.val_skeleton_every) == 0)
+        if checkpoint_due:
             _save_checkpoint(out_dir / "checkpoint_last.pt", model, optimizer, model_config, loss_config, epoch, checkpoint_metrics)
-        if score_loss < best_loss:
+        if checkpoint_due and score_loss < best_loss:
             best_loss = score_loss
             _save_checkpoint(out_dir / "checkpoint_best.pt", model, optimizer, model_config, loss_config, epoch, checkpoint_metrics)
         save_seconds = float(time.perf_counter() - save_t0)
         row["save_checkpoint_seconds"] = float(save_seconds)
+        row["checkpoint_due"] = int(checkpoint_due)
         _append_history_row(history_path, row)
 
         print(
@@ -238,6 +239,7 @@ def main() -> int:
             f"train_seconds={train_seconds:.2f} "
             f"val_seconds={val_seconds:.2f} "
             f"val_skeleton_enabled={int(val_skeleton_enabled)} "
+            f"checkpoint_due={int(checkpoint_due)} "
             f"val_preview_path={preview_path or '-'} "
             f"save_checkpoint_seconds={save_seconds:.2f}",
             flush=True,
