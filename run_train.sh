@@ -20,6 +20,9 @@
 #                 Default: 0.1
 #   NUM_WORKERS   PyTorch DataLoader worker count.
 #                 Default: 16
+#   VAL_SKELETON_EVERY
+#                 Run validation skeleton metrics every N epochs.
+#                 Default: 10
 #   AMP           Enable mixed precision when set to 1/true.
 #                 Default: 1
 #   OVERWRITE     Replace OUT_DIR when set to 1/true.
@@ -43,6 +46,7 @@ EPOCHS=${EPOCHS:-600}
 DEVICE=${DEVICE:-auto}
 VAL_FRACTION=${VAL_FRACTION:-0.1}
 NUM_WORKERS=${NUM_WORKERS:-16}
+VAL_SKELETON_EVERY=${VAL_SKELETON_EVERY:-10}
 AMP=${AMP:-1}
 OVERWRITE=${OVERWRITE:-1}
 
@@ -65,5 +69,6 @@ uv run python train_model.py \
   --device "$DEVICE" \
   --val-fraction "$VAL_FRACTION" \
   --num-workers "$NUM_WORKERS" \
+  --val-skeleton-every "$VAL_SKELETON_EVERY" \
   $amp_args \
   $overwrite_args

@@ -69,6 +69,8 @@ CUDA 13.x builds on Linux hosts with older NVIDIA drivers.
 - CPU remains supported by explicitly passing `--device cpu`.
 - Training skips batch-wise skeleton metrics by default because that CPU-heavy
   path can leave the GPU waiting between batches.
+- Validation skeleton metrics now run every `10` epochs by default instead of
+  every epoch.
 
 ## Generate Data
 
@@ -118,6 +120,7 @@ uv run python train_model.py \
   --batch-size 12 \
   --epochs 60 \
   --device cuda \
+  --val-skeleton-every 10 \
   --amp
 ```
 

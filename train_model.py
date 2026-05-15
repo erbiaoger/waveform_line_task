@@ -84,6 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amp", action="store_true", help="Enable mixed precision on supported devices. Enabled by default for CUDA.")
     parser.add_argument("--no-amp", action="store_true", help="Disable mixed precision even when CUDA is used.")
     parser.add_argument("--train-skeleton-metrics", action="store_true", help="Compute expensive skeleton metrics during training. Disabled by default to keep the GPU fed.")
+    parser.add_argument("--val-skeleton-every", type=int, default=10, help="Run expensive validation skeleton metrics every N epochs. Use 0 to disable.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--save-every", type=int, default=1, help="Checkpoint frequency in epochs.")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing non-empty out-dir.")
@@ -178,6 +179,7 @@ def main() -> int:
         val_metrics = {}
         score_loss = float(train_metrics["loss"])
         val_seconds = 0.0
+        val_skeleton_enabled = bool(int(args.val_skeleton_every) > 0 and int(epoch) % int(args.val_skeleton_every) == 0)
         if val_loader is not None:
             val_t0 = time.perf_counter()
             val_metrics = _run_epoch(
@@ -191,7 +193,7 @@ def main() -> int:
                 train=False,
                 scaler=None,
                 use_amp=use_amp,
-                include_skeleton_metrics=True,
+                include_skeleton_metrics=val_skeleton_enabled,
             )
             val_seconds = float(time.perf_counter() - val_t0)
             score_loss = float(val_metrics["loss"])
@@ -201,6 +203,7 @@ def main() -> int:
             "elapsed_seconds": float(time.perf_counter() - t0),
             "train_seconds": float(train_seconds),
             "val_seconds": float(val_seconds),
+            "val_skeleton_enabled": int(val_skeleton_enabled),
         }
         row.update({f"train_{k}": float(v) for k, v in train_metrics.items()})
         row.update({f"val_{k}": float(v) for k, v in val_metrics.items()})
@@ -223,6 +226,7 @@ def main() -> int:
             f"val_loss={val_metrics.get('loss', float('nan')):.4f} "
             f"train_seconds={train_seconds:.2f} "
             f"val_seconds={val_seconds:.2f} "
+            f"val_skeleton_enabled={int(val_skeleton_enabled)} "
             f"save_checkpoint_seconds={save_seconds:.2f}",
             flush=True,
         )
@@ -347,6 +351,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--batch-size must be > 0")
     if int(args.epochs) <= 0:
         raise ValueError("--epochs must be > 0")
+    if int(args.val_skeleton_every) < 0:
+        raise ValueError("--val-skeleton-every must be >= 0")
     if int(args.num_workers) < 0:
         raise ValueError("--num-workers must be >= 0")
     if float(args.lr) <= 0.0:
