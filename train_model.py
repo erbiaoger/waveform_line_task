@@ -160,6 +160,7 @@ def main() -> int:
     history_path = out_dir / "train_history.jsonl"
     t0 = time.perf_counter()
     for epoch in range(1, int(args.epochs) + 1):
+        train_t0 = time.perf_counter()
         train_metrics = _run_epoch(
             model,
             loader=train_loader,
@@ -173,9 +174,12 @@ def main() -> int:
             use_amp=use_amp,
             include_skeleton_metrics=bool(args.train_skeleton_metrics),
         )
+        train_seconds = float(time.perf_counter() - train_t0)
         val_metrics = {}
         score_loss = float(train_metrics["loss"])
+        val_seconds = 0.0
         if val_loader is not None:
+            val_t0 = time.perf_counter()
             val_metrics = _run_epoch(
                 model,
                 loader=val_loader,
@@ -189,27 +193,37 @@ def main() -> int:
                 use_amp=use_amp,
                 include_skeleton_metrics=True,
             )
+            val_seconds = float(time.perf_counter() - val_t0)
             score_loss = float(val_metrics["loss"])
 
         row: dict[str, float | int] = {
             "epoch": int(epoch),
             "elapsed_seconds": float(time.perf_counter() - t0),
+            "train_seconds": float(train_seconds),
+            "val_seconds": float(val_seconds),
         }
         row.update({f"train_{k}": float(v) for k, v in train_metrics.items()})
         row.update({f"val_{k}": float(v) for k, v in val_metrics.items()})
-        _append_history_row(history_path, row)
 
         checkpoint_metrics = {"train": train_metrics, "val": val_metrics}
+        save_seconds = 0.0
+        save_t0 = time.perf_counter()
         if int(epoch) % int(args.save_every) == 0:
             _save_checkpoint(out_dir / "checkpoint_last.pt", model, optimizer, model_config, loss_config, epoch, checkpoint_metrics)
         if score_loss < best_loss:
             best_loss = score_loss
             _save_checkpoint(out_dir / "checkpoint_best.pt", model, optimizer, model_config, loss_config, epoch, checkpoint_metrics)
+        save_seconds = float(time.perf_counter() - save_t0)
+        row["save_checkpoint_seconds"] = float(save_seconds)
+        _append_history_row(history_path, row)
 
         print(
             f"epoch {epoch}/{int(args.epochs)} "
             f"train_loss={train_metrics['loss']:.4f} "
-            f"val_loss={val_metrics.get('loss', float('nan')):.4f}",
+            f"val_loss={val_metrics.get('loss', float('nan')):.4f} "
+            f"train_seconds={train_seconds:.2f} "
+            f"val_seconds={val_seconds:.2f} "
+            f"save_checkpoint_seconds={save_seconds:.2f}",
             flush=True,
         )
 
