@@ -55,12 +55,16 @@ if __package__ in {None, ""}:
     from model.losses import LossConfig, segmentation_loss
     from model.metrics import segmentation_metrics
     from model.network import UNetConfig, WaveformLineUNet
+    from model.postprocess import logits_to_binary_mask
+    from render import save_preview_png
 else:
     from .device_utils import RuntimeDevice, configure_torch_runtime, resolve_runtime_device
     from .model.dataset import WaveformLineSegmentationDataset, collate_batch, load_manifest, split_records
     from .model.losses import LossConfig, segmentation_loss
     from .model.metrics import segmentation_metrics
     from .model.network import UNetConfig, WaveformLineUNet
+    from .model.postprocess import logits_to_binary_mask
+    from .render import save_preview_png
 
 
 def parse_args() -> argparse.Namespace:
@@ -162,7 +166,7 @@ def main() -> int:
     t0 = time.perf_counter()
     for epoch in range(1, int(args.epochs) + 1):
         train_t0 = time.perf_counter()
-        train_metrics = _run_epoch(
+        train_metrics, _ = _run_epoch(
             model,
             loader=train_loader,
             optimizer=optimizer,
@@ -174,15 +178,17 @@ def main() -> int:
             scaler=scaler,
             use_amp=use_amp,
             include_skeleton_metrics=bool(args.train_skeleton_metrics),
+            capture_preview=False,
         )
         train_seconds = float(time.perf_counter() - train_t0)
         val_metrics = {}
         score_loss = float(train_metrics["loss"])
         val_seconds = 0.0
         val_skeleton_enabled = bool(int(args.val_skeleton_every) > 0 and int(epoch) % int(args.val_skeleton_every) == 0)
+        preview_path = ""
         if val_loader is not None:
             val_t0 = time.perf_counter()
-            val_metrics = _run_epoch(
+            val_metrics, preview_payload = _run_epoch(
                 model,
                 loader=val_loader,
                 optimizer=None,
@@ -194,9 +200,12 @@ def main() -> int:
                 scaler=None,
                 use_amp=use_amp,
                 include_skeleton_metrics=val_skeleton_enabled,
+                capture_preview=val_skeleton_enabled,
             )
             val_seconds = float(time.perf_counter() - val_t0)
             score_loss = float(val_metrics["loss"])
+            if preview_payload is not None:
+                preview_path = str(_save_validation_preview(out_dir, epoch, preview_payload))
 
         row: dict[str, float | int] = {
             "epoch": int(epoch),
@@ -205,6 +214,8 @@ def main() -> int:
             "val_seconds": float(val_seconds),
             "val_skeleton_enabled": int(val_skeleton_enabled),
         }
+        if preview_path:
+            row["val_preview_path"] = preview_path
         row.update({f"train_{k}": float(v) for k, v in train_metrics.items()})
         row.update({f"val_{k}": float(v) for k, v in val_metrics.items()})
 
@@ -227,6 +238,7 @@ def main() -> int:
             f"train_seconds={train_seconds:.2f} "
             f"val_seconds={val_seconds:.2f} "
             f"val_skeleton_enabled={int(val_skeleton_enabled)} "
+            f"val_preview_path={preview_path or '-'} "
             f"save_checkpoint_seconds={save_seconds:.2f}",
             flush=True,
         )
@@ -249,9 +261,11 @@ def _run_epoch(
     scaler: GradScaler | None,
     use_amp: bool,
     include_skeleton_metrics: bool,
-) -> dict[str, float]:
+    capture_preview: bool = False,
+) -> tuple[dict[str, float], dict[str, torch.Tensor] | None]:
     model.train(mode=bool(train))
     rows: list[dict[str, float]] = []
+    preview_payload: dict[str, torch.Tensor] | None = None
     for batch in loader:
         image = batch["image"].to(device, non_blocking=bool(runtime_device.use_cuda))
         target = batch["mask"].to(device, non_blocking=bool(runtime_device.use_cuda))
@@ -269,6 +283,13 @@ def _run_epoch(
             )
             row = {**loss_metrics, **metrics}
             rows.append(row)
+            if preview_payload is None and capture_preview:
+                pred = logits_to_binary_mask(logits.detach(), threshold=threshold).cpu()
+                preview_payload = {
+                    "image": batch["image"][0:1].detach().cpu(),
+                    "target": batch["mask"][0:1].detach().cpu(),
+                    "pred": pred[0:1],
+                }
             if train and optimizer is not None:
                 optimizer.zero_grad(set_to_none=True)
                 if scaler is not None and scaler.is_enabled():
@@ -278,7 +299,35 @@ def _run_epoch(
                 else:
                     loss.backward()
                     optimizer.step()
-    return _mean_metrics(rows)
+    return _mean_metrics(rows), preview_payload
+
+
+def _save_validation_preview(out_dir: Path, epoch: int, payload: dict[str, torch.Tensor]) -> Path:
+    preview_dir = out_dir / "val_previews"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    preview_path = preview_dir / f"epoch_{int(epoch):04d}.png"
+    image = payload["image"][0, 0]
+    target = payload["target"][0, 0]
+    pred = payload["pred"][0, 0]
+    composite = _build_validation_preview(image, target, pred)
+    save_preview_png(preview_path, composite)
+    return preview_path
+
+
+def _build_validation_preview(image: torch.Tensor, target: torch.Tensor, pred: torch.Tensor) -> np.ndarray:
+    base = (torch.clamp(image, 0.0, 1.0) * 255.0).to(torch.uint8).numpy()
+    base_rgb = np.stack([base, base, base], axis=0)
+    target_rgb = base_rgb.copy()
+    pred_rgb = base_rgb.copy()
+    target_mask = target.numpy() >= 0.5
+    pred_mask = pred.numpy() >= 0.5
+    target_rgb[0, target_mask] = 255
+    target_rgb[1, target_mask] = np.minimum(target_rgb[1, target_mask], 80)
+    target_rgb[2, target_mask] = np.minimum(target_rgb[2, target_mask], 80)
+    pred_rgb[1, pred_mask] = 255
+    pred_rgb[0, pred_mask] = np.minimum(pred_rgb[0, pred_mask], 80)
+    pred_rgb[2, pred_mask] = np.minimum(pred_rgb[2, pred_mask], 80)
+    return np.concatenate([base_rgb, target_rgb, pred_rgb], axis=2)
 
 
 def _save_checkpoint(

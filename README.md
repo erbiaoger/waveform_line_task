@@ -71,6 +71,8 @@ CUDA 13.x builds on Linux hosts with older NVIDIA drivers.
   path can leave the GPU waiting between batches.
 - Validation skeleton metrics now run every `10` epochs by default instead of
   every epoch.
+- On those validation skeleton epochs, the training loop also exports one
+  validation preview image under `val_previews/`.
 
 ## Generate Data
 

@@ -23,6 +23,7 @@
 #   VAL_SKELETON_EVERY
 #                 Run validation skeleton metrics every N epochs.
 #                 Default: 10
+#                 A validation preview image is also exported on those epochs.
 #   AMP           Enable mixed precision when set to 1/true.
 #                 Default: 1
 #   OVERWRITE     Replace OUT_DIR when set to 1/true.
