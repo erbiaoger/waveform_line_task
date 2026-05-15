@@ -7,7 +7,13 @@ import torch
 from .postprocess import logits_to_binary_mask, mask_to_skeleton_tensor
 
 
-def segmentation_metrics(logits: torch.Tensor, target: torch.Tensor, threshold: float = 0.5) -> dict[str, float]:
+def segmentation_metrics(
+    logits: torch.Tensor,
+    target: torch.Tensor,
+    threshold: float = 0.5,
+    *,
+    include_skeleton: bool = True,
+) -> dict[str, float]:
     """Compute pixel and skeleton metrics for a batch."""
 
     pred = logits_to_binary_mask(logits, threshold=threshold)
@@ -22,6 +28,16 @@ def segmentation_metrics(logits: torch.Tensor, target: torch.Tensor, threshold: 
     iou = tp / max(eps, tp + fp + fn)
     dice = 2.0 * tp / max(eps, 2.0 * tp + fp + fn)
 
+    out = {
+        "pixel_precision": float(precision),
+        "pixel_recall": float(recall),
+        "pixel_f1": float(f1),
+        "iou": float(iou),
+        "dice": float(dice),
+    }
+    if not include_skeleton:
+        return out
+
     pred_skel = mask_to_skeleton_tensor(pred).to(target_bin.dtype)
     target_skel = mask_to_skeleton_tensor(target_bin).to(target_bin.dtype)
     sk_tp = torch.sum(pred_skel * target_skel).item()
@@ -30,15 +46,11 @@ def segmentation_metrics(logits: torch.Tensor, target: torch.Tensor, threshold: 
     sk_precision = sk_tp / max(eps, sk_tp + sk_fp)
     sk_recall = sk_tp / max(eps, sk_tp + sk_fn)
     sk_f1 = 2.0 * sk_precision * sk_recall / max(eps, sk_precision + sk_recall)
-
-    return {
-        "pixel_precision": float(precision),
-        "pixel_recall": float(recall),
-        "pixel_f1": float(f1),
-        "iou": float(iou),
-        "dice": float(dice),
-        "skeleton_precision": float(sk_precision),
-        "skeleton_recall": float(sk_recall),
-        "skeleton_f1": float(sk_f1),
-    }
-
+    out.update(
+        {
+            "skeleton_precision": float(sk_precision),
+            "skeleton_recall": float(sk_recall),
+            "skeleton_f1": float(sk_f1),
+        }
+    )
+    return out

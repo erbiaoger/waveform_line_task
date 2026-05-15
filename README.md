@@ -67,6 +67,8 @@ CUDA 13.x builds on Linux hosts with older NVIDIA drivers.
 - Default device is now `auto`, which prefers `cuda`, then `mps`, then `cpu`.
 - Training and inference are tuned first for NVIDIA CUDA.
 - CPU remains supported by explicitly passing `--device cpu`.
+- Training skips batch-wise skeleton metrics by default because that CPU-heavy
+  path can leave the GPU waiting between batches.
 
 ## Generate Data
 

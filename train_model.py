@@ -83,6 +83,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dropout", type=float, default=0.0, help="Optional dropout in conv blocks.")
     parser.add_argument("--amp", action="store_true", help="Enable mixed precision on supported devices. Enabled by default for CUDA.")
     parser.add_argument("--no-amp", action="store_true", help="Disable mixed precision even when CUDA is used.")
+    parser.add_argument("--train-skeleton-metrics", action="store_true", help="Compute expensive skeleton metrics during training. Disabled by default to keep the GPU fed.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--save-every", type=int, default=1, help="Checkpoint frequency in epochs.")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing non-empty out-dir.")
@@ -170,6 +171,7 @@ def main() -> int:
             train=True,
             scaler=scaler,
             use_amp=use_amp,
+            include_skeleton_metrics=bool(args.train_skeleton_metrics),
         )
         val_metrics = {}
         score_loss = float(train_metrics["loss"])
@@ -185,6 +187,7 @@ def main() -> int:
                 train=False,
                 scaler=None,
                 use_amp=use_amp,
+                include_skeleton_metrics=True,
             )
             score_loss = float(val_metrics["loss"])
 
@@ -227,6 +230,7 @@ def _run_epoch(
     train: bool,
     scaler: GradScaler | None,
     use_amp: bool,
+    include_skeleton_metrics: bool,
 ) -> dict[str, float]:
     model.train(mode=bool(train))
     rows: list[dict[str, float]] = []
@@ -239,7 +243,12 @@ def _run_epoch(
             with autocast(device_type="cuda", enabled=bool(use_amp and runtime_device.use_cuda)):
                 logits = model(image)
                 loss, loss_metrics = segmentation_loss(logits, target, loss_config)
-            metrics = segmentation_metrics(logits.detach(), target.detach(), threshold=threshold)
+            metrics = segmentation_metrics(
+                logits.detach(),
+                target.detach(),
+                threshold=threshold,
+                include_skeleton=bool(include_skeleton_metrics),
+            )
             row = {**loss_metrics, **metrics}
             rows.append(row)
             if train and optimizer is not None:

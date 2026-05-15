@@ -127,6 +127,8 @@ def collate_batch(batch: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _resize_tensor(tensor: torch.Tensor, image_size: int, *, mode: str) -> torch.Tensor:
+    if int(tensor.shape[-2]) == int(image_size) and int(tensor.shape[-1]) == int(image_size):
+        return tensor
     tensor = tensor.unsqueeze(0)
     if mode == "nearest":
         resized = F.interpolate(tensor, size=(int(image_size), int(image_size)), mode=mode)
@@ -136,6 +138,7 @@ def _resize_tensor(tensor: torch.Tensor, image_size: int, *, mode: str) -> torch
 
 
 def _read_gray_image(path: Path) -> torch.Tensor:
-    image = Image.open(path).convert("L")
-    arr = np.asarray(image, dtype=np.float32) / 255.0
+    with Image.open(path) as image:
+        gray = image.convert("L")
+        arr = np.asarray(gray, dtype=np.float32) / 255.0
     return torch.from_numpy(arr).unsqueeze(0)
