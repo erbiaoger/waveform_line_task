@@ -78,19 +78,28 @@ class WaveformLineSegmentationDataset(Dataset):
         *,
         image_size: int,
         include_labels: bool,
+        cache_in_memory: bool = False,
     ) -> None:
         self.records = list(records)
         self.image_size = int(image_size)
         self.include_labels = bool(include_labels)
+        self.cache_in_memory = bool(cache_in_memory)
+        self._image_cache: list[torch.Tensor] | None = None
+        self._mask_cache: list[torch.Tensor] | None = None
         if self.image_size <= 0:
             raise ValueError("image_size must be > 0")
+        if self.cache_in_memory:
+            self._build_cache()
 
     def __len__(self) -> int:
         return len(self.records)
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         record = self.records[int(index)]
-        image = _read_gray_image(record.image_path)
+        if self._image_cache is not None:
+            image = self._image_cache[int(index)]
+        else:
+            image = _read_gray_image(record.image_path)
         original_size = (int(image.shape[-2]), int(image.shape[-1]))
         image = _resize_tensor(image, self.image_size, mode="bilinear")
 
@@ -102,12 +111,23 @@ class WaveformLineSegmentationDataset(Dataset):
             "stem": record.image_path.stem,
         }
         if self.include_labels:
-            mask = _read_gray_image(record.label_path)
+            if self._mask_cache is not None:
+                mask = self._mask_cache[int(index)]
+            else:
+                mask = _read_gray_image(record.label_path)
             mask = (mask >= 0.5).to(torch.float32)
             mask = _resize_tensor(mask, self.image_size, mode="nearest")
             item["mask"] = (mask >= 0.5).to(torch.float32).contiguous()
             item["label_path"] = str(record.label_path)
         return item
+
+    def _build_cache(self) -> None:
+        self._image_cache = []
+        self._mask_cache = [] if self.include_labels else None
+        for record in self.records:
+            self._image_cache.append(_read_gray_image(record.image_path))
+            if self.include_labels and self._mask_cache is not None:
+                self._mask_cache.append(_read_gray_image(record.label_path))
 
 
 def collate_batch(batch: list[dict[str, Any]]) -> dict[str, Any]:
