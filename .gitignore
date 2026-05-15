@@ -12,6 +12,7 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+uv.lock
 
 # Training / inference artifacts
 models/**
