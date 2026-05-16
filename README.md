@@ -117,6 +117,15 @@ Useful overrides:
 NUM_WINDOWS=6 START_WINDOW_INDEX=10 OUT_DIR=datasets/real_gauss_section_preview sh convert_gauss_section_to_waveform_line.sh
 ```
 
+Default behavior:
+
+```sh
+sh convert_gauss_section_to_waveform_line.sh
+```
+
+This now exports all remaining windows by default. Set `NUM_WINDOWS=0` to keep
+that behavior explicitly.
+
 Generic CLI:
 
 ```sh
@@ -128,7 +137,7 @@ uv run python convert_real_npy_to_dataset.py \
   --fs 1000 \
   --window-seconds 120 \
   --stride-seconds 60 \
-  --num-windows 4 \
+  --num-windows 0 \
   --overwrite
 ```
 

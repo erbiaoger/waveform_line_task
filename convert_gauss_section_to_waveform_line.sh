@@ -8,7 +8,7 @@ set -eu
 #
 # Example with overrides:
 #   OUT_DIR=datasets/real_gauss_section_preview \
-#   NUM_WINDOWS=6 \
+#   NUM_WINDOWS=0 \
 #   START_WINDOW_INDEX=10 \
 #   WINDOW_SECONDS=120 \
 #   STRIDE_SECONDS=60 \
@@ -31,7 +31,7 @@ FS=${FS:-1000}
 WINDOW_SECONDS=${WINDOW_SECONDS:-120}
 STRIDE_SECONDS=${STRIDE_SECONDS:-60}
 START_WINDOW_INDEX=${START_WINDOW_INDEX:-0}
-NUM_WINDOWS=${NUM_WINDOWS:-4}
+NUM_WINDOWS=${NUM_WINDOWS:-0}
 CHANNEL_START=${CHANNEL_START:-0}
 CHANNEL_COUNT=${CHANNEL_COUNT:-0}
 CENTER_MODE=${CENTER_MODE:-channel_median}
@@ -48,12 +48,6 @@ if [ "$OVERWRITE" = "1" ] || [ "$OVERWRITE" = "true" ]; then
   overwrite_args="--overwrite"
 fi
 
-if [ ! -d .venv ]; then
-  echo "Missing project-local .venv under $PROJECT_ROOT" >&2
-  exit 1
-fi
-
-. .venv/bin/activate
 uv run python convert_real_npy_to_dataset.py \
   --input "$INPUT" \
   --out-dir "$OUT_DIR" \

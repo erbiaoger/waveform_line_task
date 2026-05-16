@@ -39,7 +39,7 @@ Examples:
           --fs 1000 \
           --window-seconds 120 \
           --stride-seconds 60 \
-          --num-windows 4 \
+          --num-windows 0 \
           --overwrite
 
     Start from a later window:
@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-seconds", type=float, default=120.0, help="Window duration in seconds.")
     parser.add_argument("--stride-seconds", type=float, default=60.0, help="Sliding-window stride in seconds.")
     parser.add_argument("--start-window-index", type=int, default=0, help="First sliding-window index to export.")
-    parser.add_argument("--num-windows", type=int, default=4, help="How many windows to export.")
+    parser.add_argument("--num-windows", type=int, default=0, help="How many windows to export. `0` means export all remaining windows.")
     parser.add_argument("--channel-start", type=int, default=0, help="First channel to keep.")
     parser.add_argument("--channel-count", type=int, default=0, help="Number of channels to keep. `0` means keep all available channels from `channel-start` onward.")
     parser.add_argument(
@@ -134,7 +134,8 @@ def main() -> int:
     total_samples = int(selected.shape[1])
     total_windows = _count_windows(total_samples=total_samples, window_samples=window_samples, stride_samples=stride_samples)
     start_index = int(args.start_window_index)
-    end_index = min(total_windows, start_index + int(args.num_windows))
+    requested_windows = int(args.num_windows)
+    end_index = total_windows if requested_windows == 0 else min(total_windows, start_index + requested_windows)
     if start_index >= total_windows:
         raise ValueError(f"--start-window-index={start_index} is out of range; total windows={total_windows}")
 
@@ -212,8 +213,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--stride-seconds must be > 0")
     if int(args.start_window_index) < 0:
         raise ValueError("--start-window-index must be >= 0")
-    if int(args.num_windows) <= 0:
-        raise ValueError("--num-windows must be > 0")
+    if int(args.num_windows) < 0:
+        raise ValueError("--num-windows must be >= 0")
     if int(args.channel_start) < 0:
         raise ValueError("--channel-start must be >= 0")
     if int(args.channel_count) < 0:
