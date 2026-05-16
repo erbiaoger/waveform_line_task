@@ -20,8 +20,9 @@ No code in this folder imports `autotrack` or any existing project scripts.
 - `predict_model.py`: batch inference entry point.
 - `run_train.sh`: training shortcut through `uv run`.
 - `run_predict.sh`: prediction shortcut through `uv run`.
+- `convert_real_npy_to_dataset.py`: generic real `.npy` to model-input PNG dataset converter.
+- `convert_gauss_section_to_waveform_line.sh`: preconfigured wrapper for `gauss_section.npy`.
 - `docs/`: method notes for the physical and mathematical assumptions.
-- `real_data/`: convert real unlabeled `.npy` arrays into model-ready waveform PNG datasets.
 - `datasets/`: default generated dataset location. Generated data can be recreated.
 - `models/`: default checkpoint output location.
 - `predictions/`: default batch prediction output location.
@@ -107,20 +108,20 @@ Use the real-data wrapper to convert a few windows from a real `.npy` array
 into the current model's input-image style:
 
 ```sh
-sh real_data/convert_gauss_section_to_waveform_line.sh
+sh convert_gauss_section_to_waveform_line.sh
 ```
 
 Useful overrides:
 
 ```sh
-NUM_WINDOWS=6 START_WINDOW_INDEX=10 OUT_DIR=datasets/real_gauss_section_preview sh real_data/convert_gauss_section_to_waveform_line.sh
+NUM_WINDOWS=6 START_WINDOW_INDEX=10 OUT_DIR=datasets/real_gauss_section_preview sh convert_gauss_section_to_waveform_line.sh
 ```
 
 Generic CLI:
 
 ```sh
 source .venv/bin/activate
-uv run python real_data/convert_real_npy_to_dataset.py \
+uv run python convert_real_npy_to_dataset.py \
   --input /path/to/real.npy \
   --out-dir datasets/real_preview \
   --array-layout time_channel \

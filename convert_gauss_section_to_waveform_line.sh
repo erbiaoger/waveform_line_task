@@ -4,7 +4,7 @@ set -eu
 # Convert the real `gauss_section.npy` array into waveform-line model input PNGs.
 #
 # Default usage:
-#   sh real_data/convert_gauss_section_to_waveform_line.sh
+#   sh convert_gauss_section_to_waveform_line.sh
 #
 # Example with overrides:
 #   OUT_DIR=datasets/real_gauss_section_preview \
@@ -12,7 +12,7 @@ set -eu
 #   START_WINDOW_INDEX=10 \
 #   WINDOW_SECONDS=120 \
 #   STRIDE_SECONDS=60 \
-#   sh real_data/convert_gauss_section_to_waveform_line.sh
+#   sh convert_gauss_section_to_waveform_line.sh
 #
 # Output:
 #   <out-dir>/images/*.png
@@ -21,10 +21,10 @@ set -eu
 #   <out-dir>/meta.json
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+PROJECT_ROOT=$SCRIPT_DIR
 cd "$PROJECT_ROOT"
 
-INPUT=${INPUT:-/Volumes/SanDisk2T4/MyProjects/BaFang/xi/saved_arrays04/gauss_section.npy}
+INPUT=${INPUT:-datasets/real/gauss_section.npy}
 OUT_DIR=${OUT_DIR:-datasets/real_gauss_section_preview}
 ARRAY_LAYOUT=${ARRAY_LAYOUT:-time_channel}
 FS=${FS:-1000}
@@ -54,7 +54,7 @@ if [ ! -d .venv ]; then
 fi
 
 . .venv/bin/activate
-uv run python real_data/convert_real_npy_to_dataset.py \
+uv run python convert_real_npy_to_dataset.py \
   --input "$INPUT" \
   --out-dir "$OUT_DIR" \
   --array-layout "$ARRAY_LAYOUT" \

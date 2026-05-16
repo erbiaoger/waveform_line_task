@@ -32,7 +32,7 @@ Output:
 Examples:
     Convert the first four 120 s windows from `gauss_section.npy`:
 
-        uv run python real_data/convert_real_npy_to_dataset.py \
+        uv run python convert_real_npy_to_dataset.py \
           --input /Volumes/SanDisk2T4/MyProjects/BaFang/xi/saved_arrays04/gauss_section.npy \
           --out-dir datasets/real_gauss_section_preview \
           --array-layout time_channel \
@@ -44,7 +44,7 @@ Examples:
 
     Start from a later window:
 
-        uv run python real_data/convert_real_npy_to_dataset.py \
+        uv run python convert_real_npy_to_dataset.py \
           --input /path/to/real.npy \
           --out-dir datasets/real_preview \
           --start-window-index 10 \
@@ -55,7 +55,7 @@ How to run:
     1. `cd /Volumes/SanDisk2T4/MyProjects/BaFang/KF/waveform_line_task`
     2. `source .venv/bin/activate`
     3. Run one of the commands above, or use the shell wrapper in
-       `real_data/convert_gauss_section_to_waveform_line.sh`.
+       `convert_gauss_section_to_waveform_line.sh`.
 
 Result interpretation:
     - `images/` are the model-ready input PNGs.
@@ -77,10 +77,10 @@ from typing import Any
 import numpy as np
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     from render import RenderConfig, render_preview, render_waveform_image, save_gray_png, save_preview_png
 else:
-    from ..render import RenderConfig, render_preview, render_waveform_image, save_gray_png, save_preview_png
+    from .render import RenderConfig, render_preview, render_waveform_image, save_gray_png, save_preview_png
 
 
 def parse_args() -> argparse.Namespace:
