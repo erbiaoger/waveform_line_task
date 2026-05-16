@@ -21,6 +21,7 @@ No code in this folder imports `autotrack` or any existing project scripts.
 - `run_train.sh`: training shortcut through `uv run`.
 - `run_predict.sh`: prediction shortcut through `uv run`.
 - `docs/`: method notes for the physical and mathematical assumptions.
+- `real_data/`: convert real unlabeled `.npy` arrays into model-ready waveform PNG datasets.
 - `datasets/`: default generated dataset location. Generated data can be recreated.
 - `models/`: default checkpoint output location.
 - `predictions/`: default batch prediction output location.
@@ -98,6 +99,36 @@ Useful environment overrides:
 
 ```sh
 NUM_SAMPLES=128 WORKERS=4 DEVICE=cpu OUT_DIR=/tmp/waveform_line_test sh run_generate.sh
+```
+
+## Convert Real NPY To Input Images
+
+Use the real-data wrapper to convert a few windows from a real `.npy` array
+into the current model's input-image style:
+
+```sh
+sh real_data/convert_gauss_section_to_waveform_line.sh
+```
+
+Useful overrides:
+
+```sh
+NUM_WINDOWS=6 START_WINDOW_INDEX=10 OUT_DIR=datasets/real_gauss_section_preview sh real_data/convert_gauss_section_to_waveform_line.sh
+```
+
+Generic CLI:
+
+```sh
+source .venv/bin/activate
+uv run python real_data/convert_real_npy_to_dataset.py \
+  --input /path/to/real.npy \
+  --out-dir datasets/real_preview \
+  --array-layout time_channel \
+  --fs 1000 \
+  --window-seconds 120 \
+  --stride-seconds 60 \
+  --num-windows 4 \
+  --overwrite
 ```
 
 Recommended larger training set:
