@@ -33,9 +33,9 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$SCRIPT_DIR
 cd "$PROJECT_DIR"
 
-INPUT_DIR=${INPUT_DIR:-datasets/sample_check/images}
-MODEL=${MODEL:-models/unet_v1/checkpoint_best.pt}
-OUT_DIR=${OUT_DIR:-predictions/sample_check}
+INPUT_DIR=${INPUT_DIR:-datasets/real_gauss_section_preview/images}
+MODEL=${MODEL:-models/unet_v1/checkpoint_last.pt}
+OUT_DIR=${OUT_DIR:-predictions/real_gauss_section_preview}
 IMAGE_SIZE=${IMAGE_SIZE:-512}
 BATCH_SIZE=${BATCH_SIZE:-32}
 DEVICE=${DEVICE:-auto}
